@@ -1,0 +1,3 @@
+# Restricciones por compatibilidad con deepchecks 0.19.1
+scikit-learn<1.8     # sklearn 1.9 eliminó el scorer 'max_error'
+setuptools<81        # deepchecks importa pkg_resources
