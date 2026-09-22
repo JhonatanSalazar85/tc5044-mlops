@@ -59,3 +59,19 @@ MLOps project for TC5044 - Operaciones de aprendizaje automatico (Tec de Monterr
 
 --------
 
+
+## Instalación del entorno
+
+Requisitos: WSL2/Linux, [uv](https://docs.astral.sh/uv/), Python 3.11.
+
+```bash
+uv venv --python 3.11
+source .venv/bin/activate
+uv pip install -r requirements.txt -c constraints.txt
+uv pip install -e .
+pytest -q
+```
+
+`constraints.txt` fija `scikit-learn<1.8` y `setuptools<81` por compatibilidad con Deepchecks 0.19.1.
+
+MLflow Projects y serving deben ejecutarse con `--env-manager local`.
