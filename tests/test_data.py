@@ -1,5 +1,2 @@
-import pytest
-
-
-def test_code_is_tested():
-    assert False
+def test_package_imports():
+    import tc5044_mlops  # noqa: F401
