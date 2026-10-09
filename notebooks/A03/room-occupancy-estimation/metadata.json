@@ -1,0 +1,30 @@
+{
+  "name": "Room Occupancy Estimation",
+  "slug": "room-occupancy-estimation",
+  "page": "https://archive.ics.uci.edu/dataset/864/room+occupancy+estimation",
+  "source": "web",
+  "downloaded": [
+    "data/room-occupancy-estimation/original/room+occupancy+estimation.zip"
+  ],
+  "original_csv": "data/room-occupancy-estimation/original.csv",
+  "modified_csv": "data/room-occupancy-estimation/modified.csv",
+  "shape_original": [
+    10129,
+    19
+  ],
+  "shape_modified": [
+    10331,
+    20
+  ],
+  "hash_original_csv": "b1233661bf4ef0bf3aefca4714693e3b5b0b47288e899f3026be23976b0d3e6e",
+  "hash_modified_csv": "53d80813eda203f3acfa9f0bbfeea28abe181c43f34fd15efe774e67d3355275",
+  "seed": 42,
+  "rates": {
+    "dup_rate": 0.02,
+    "nan_rate": 0.01,
+    "outlier_rate": 0.01,
+    "bad_token_rate": 0.005,
+    "obj_noise_rate": 0.05,
+    "add_mixed_type": true
+  }
+}
