@@ -1,0 +1,22 @@
+{
+  "generado": "2026-10-22T01:50:25+00:00",
+  "entrada": "data/interim/mibici_viajes.parquet",
+  "params": {
+    "duracion_min_valida": 1.0,
+    "duracion_max_valida": 1440.0,
+    "edad_min_valida": 12,
+    "edad_max_valida": 90
+  },
+  "viajes_entrada": 7404041,
+  "duplicados_eliminados": 0,
+  "marcados_duracion_corta": 226351,
+  "marcados_duracion_larga": 16,
+  "viajes_validos": 7177674,
+  "edades_anuladas": 739,
+  "viajes_sin_catalogo": 3954,
+  "viajes_redondos": 453532,
+  "viajes_salida": 7404041,
+  "pct_validos": 96.9427,
+  "salida": "data/processed/mibici_viajes.parquet",
+  "mb_salida": 172.1
+}
