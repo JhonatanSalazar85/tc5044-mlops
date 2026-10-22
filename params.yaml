@@ -1,0 +1,16 @@
+# Parámetros del pipeline de datos MiBici (TC5044 - MLOps)
+# Cambiar un valor aquí y correr `dvc repro` re-ejecuta solo lo que depende de él.
+
+descargar:
+  desde: "2025-01"
+  hasta: "2026-08"
+
+limpiar:
+  # Umbrales de validez del viaje, en minutos.
+  # < 1 min  : retiro cancelado (91 % de ellos devuelve en la misma estación)
+  # > 1440   : bici no devuelta en 24 h
+  duracion_min_valida: 1.0
+  duracion_max_valida: 1440.0
+  # Edad declarada por el usuario; fuera de rango se anula (no se borra la fila)
+  edad_min_valida: 12
+  edad_max_valida: 90

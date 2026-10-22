@@ -1,0 +1,56 @@
+# Pipeline de datos MiBici - TC5044 Operaciones de aprendizaje automático
+# Reproducir todo:        dvc repro
+# Reproducir una etapa:   dvc repro limpiar
+# Ver el grafo:           dvc dag
+
+stages:
+
+  descargar:
+    cmd: >-
+      python scripts/mibici_dataset.py descargar
+      --out data/raw/mibici
+      --desde ${descargar.desde}
+      --hasta ${descargar.hasta}
+    deps:
+      - scripts/mibici_dataset.py
+    params:
+      - descargar.desde
+      - descargar.hasta
+    outs:
+      - data/raw/mibici:
+          persist: true     # no se borra entre corridas: la descarga es incremental
+    # La fuente es remota y puede republicar meses; el manifiesto.json con los
+    # MD5 queda dentro del out y es lo que fija qué bytes se usaron.
+
+  consolidar:
+    cmd: >-
+      python scripts/mibici_dataset.py consolidar
+      --in data/raw/mibici
+      --out data/interim/mibici_viajes.parquet
+    deps:
+      - scripts/mibici_dataset.py
+      - data/raw/mibici
+    outs:
+      - data/interim/mibici_viajes.parquet
+
+  limpiar:
+    cmd: >-
+      python scripts/limpiar_mibici.py
+      --entrada data/interim/mibici_viajes.parquet
+      --nomenclatura data/raw/mibici/nomenclatura
+      --salida data/processed/mibici_viajes.parquet
+      --reporte reports/limpieza.json
+    deps:
+      - scripts/limpiar_mibici.py
+      - data/interim/mibici_viajes.parquet
+      - data/raw/mibici/nomenclatura
+    params:
+      - limpiar.duracion_min_valida
+      - limpiar.duracion_max_valida
+      - limpiar.edad_min_valida
+      - limpiar.edad_max_valida
+    outs:
+      - data/processed/mibici_viajes.parquet
+    metrics:
+      - reports/limpieza.json:
+          cache: false
