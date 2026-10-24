@@ -91,6 +91,11 @@ def cargar_nomenclatura(ruta: Path) -> pd.DataFrame | None:
     return out[keep].dropna(subset=["estacion_id"]).drop_duplicates("estacion_id")
 
 
+def eliminar_duplicados_exactos(df: pd.DataFrame) -> pd.DataFrame:
+    """Conserva viajes con el mismo id si difieren en otra columna."""
+    return df.drop_duplicates(keep="first").reset_index(drop=True)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -114,7 +119,7 @@ def main() -> None:
 
     # -- 1. duplicados exactos: único caso en que sí se borra ---------------
     antes = len(df)
-    df = df.drop_duplicates(subset=["viaje_id"], keep="first").reset_index(drop=True)
+    df = eliminar_duplicados_exactos(df)
     rep["duplicados_eliminados"] = antes - len(df)
     print(f"duplicados exactos eliminados : {rep['duplicados_eliminados']:,}")
 
