@@ -125,11 +125,25 @@ def main() -> None:
 
     # -- 2. bandera de validez por duración ---------------------------------
     dmin, dmax = par["duracion_min_valida"], par["duracion_max_valida"]
-    corto = df["duracion_min"] < dmin
-    largo = df["duracion_min"] > dmax
-    df["viaje_valido"] = ~(corto | largo)
-    rep["marcados_duracion_corta"] = int(corto.sum())
-    rep["marcados_duracion_larga"] = int(largo.sum())
+    duracion = pd.to_numeric(
+    df["duracion_min"],
+    errors="coerce"
+    )
+
+    df["viaje_valido"] = (
+    duracion.notna()
+    & duracion.between(
+        dmin,
+        dmax,
+        inclusive="both"
+    )
+    )
+
+    df["duracion_faltante"] = duracion.isna()
+    df["duracion_corta"] = duracion < dmin
+    df["duracion_larga"] = duracion > dmax
+    rep["marcados_duracion_corta"] = int(df["duracion_corta"].sum())
+    rep["marcados_duracion_larga"] = int(df["duracion_larga"].sum())
     rep["viajes_validos"] = int(df["viaje_valido"].sum())
     print(f"marcados duración < {dmin} min   : {rep['marcados_duracion_corta']:,}")
     print(f"marcados duración > {dmax} min: {rep['marcados_duracion_larga']:,}")
