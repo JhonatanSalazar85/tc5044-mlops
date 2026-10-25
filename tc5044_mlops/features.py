@@ -83,27 +83,31 @@ def agregar_calendario(dem: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
-def agregar_rezagos(dem: pd.DataFrame,
-                    lags: tuple[int, ...] = LAGS_HORAS,
-                    ventanas: tuple[int, ...] = VENTANAS_MOVILES) -> pd.DataFrame:
-    """Rezagos y medias móviles por estación.
+def agregar_rezagos(dem, lags=(1, 2, 24, 168),
+                    ventanas=(3, 24, 168)):
 
-    Las medias móviles se calculan con `shift(1)` antes de la ventana para
-    no incluir la hora que se está prediciendo: de lo contrario habría fuga
-    de información (data leakage) y las métricas offline saldrían
-    optimistas de forma irreal.
-    """
-    d = dem.copy()
+    d = dem.sort_values(
+        ["origen_id", "fecha_hora"]
+    ).copy()
+
     g = d.groupby("origen_id")["demanda"]
 
-    for l in lags:
-        d[f"demanda_lag_{l}h"] = g.shift(l).astype("float32")
-
-    for v in ventanas:
-        d[f"demanda_media_{v}h"] = (
-            g.shift(1).rolling(v, min_periods=1).mean()
-             .reset_index(level=0, drop=True).astype("float32")
+    for lag in lags:
+        d[f"demanda_lag_{lag}h"] = (
+            g.shift(lag).astype("float32")
         )
+
+    for ventana in ventanas:
+        d[f"demanda_media_{ventana}h"] = (
+            d.groupby("origen_id")["demanda"]
+            .transform(
+                lambda s: s.shift(1)
+                .rolling(ventana, min_periods=1)
+                .mean()
+            )
+            .astype("float32")
+        )
+
     return d
 
 
