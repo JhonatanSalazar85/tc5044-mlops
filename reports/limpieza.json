@@ -1,5 +1,5 @@
 {
-  "generado": "2026-10-22T01:50:25+00:00",
+  "generado": "2026-10-26T00:44:00+00:00",
   "entrada": "data/interim/mibici_viajes.parquet",
   "params": {
     "duracion_min_valida": 1.0,
@@ -18,5 +18,5 @@
   "viajes_salida": 7404041,
   "pct_validos": 96.9427,
   "salida": "data/processed/mibici_viajes.parquet",
-  "mb_salida": 172.1
+  "mb_salida": 172.4
 }
