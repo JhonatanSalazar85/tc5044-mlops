@@ -83,30 +83,33 @@ def agregar_calendario(dem: pd.DataFrame) -> pd.DataFrame:
     return d
 
 
-def agregar_rezagos(dem, lags=(1, 2, 24, 168),
-                    ventanas=(3, 24, 168)):
+def agregar_rezagos(dem: pd.DataFrame,
+                    lags: tuple[int, ...] = LAGS_HORAS,
+                    ventanas: tuple[int, ...] = VENTANAS_MOVILES) -> pd.DataFrame:
+    """Rezagos y medias móviles por estación.
 
-    d = dem.sort_values(
-        ["origen_id", "fecha_hora"]
-    ).copy()
+    Las medias móviles se calculan con `shift(1)` antes de la ventana para
+    no incluir la hora que se está prediciendo: de lo contrario habría fuga
+    de información (data leakage) y las métricas offline saldrían
+    optimistas de forma irreal.
 
+    El desplazamiento y la ventana se aplican dentro de cada estación con
+    `groupby(...).transform`. Aplicar `rolling` sobre la serie ya desplazada
+    pero sin agrupar hacía que las primeras horas de cada estación
+    promediaran valores del final de la estación anterior, es decir, del
+    futuro. Ese defecto se detectó en revisión de código (PR #2) y lo fija
+    la prueba `tests/test_features.py`.
+    """
+    d = dem.sort_values(["origen_id", "fecha_hora"]).copy()
     g = d.groupby("origen_id")["demanda"]
 
     for lag in lags:
-        d[f"demanda_lag_{lag}h"] = (
-            g.shift(lag).astype("float32")
-        )
+        d[f"demanda_lag_{lag}h"] = g.shift(lag).astype("float32")
 
     for ventana in ventanas:
-        d[f"demanda_media_{ventana}h"] = (
-            d.groupby("origen_id")["demanda"]
-            .transform(
-                lambda s: s.shift(1)
-                .rolling(ventana, min_periods=1)
-                .mean()
-            )
-            .astype("float32")
-        )
+        d[f"demanda_media_{ventana}h"] = g.transform(
+            lambda s, v=ventana: s.shift(1).rolling(v, min_periods=1).mean()
+        ).astype("float32")
 
     return d
 
