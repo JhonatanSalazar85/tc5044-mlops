@@ -92,18 +92,25 @@ def agregar_rezagos(dem: pd.DataFrame,
     no incluir la hora que se está prediciendo: de lo contrario habría fuga
     de información (data leakage) y las métricas offline saldrían
     optimistas de forma irreal.
+
+    El desplazamiento y la ventana se aplican dentro de cada estación con
+    `groupby(...).transform`. Aplicar `rolling` sobre la serie ya desplazada
+    pero sin agrupar hacía que las primeras horas de cada estación
+    promediaran valores del final de la estación anterior, es decir, del
+    futuro. Ese defecto se detectó en revisión de código (PR #2) y lo fija
+    la prueba `tests/test_features.py`.
     """
-    d = dem.copy()
+    d = dem.sort_values(["origen_id", "fecha_hora"]).copy()
     g = d.groupby("origen_id")["demanda"]
 
-    for l in lags:
-        d[f"demanda_lag_{l}h"] = g.shift(l).astype("float32")
+    for lag in lags:
+        d[f"demanda_lag_{lag}h"] = g.shift(lag).astype("float32")
 
-    for v in ventanas:
-        d[f"demanda_media_{v}h"] = (
-            g.shift(1).rolling(v, min_periods=1).mean()
-             .reset_index(level=0, drop=True).astype("float32")
-        )
+    for ventana in ventanas:
+        d[f"demanda_media_{ventana}h"] = g.transform(
+            lambda s, v=ventana: s.shift(1).rolling(v, min_periods=1).mean()
+        ).astype("float32")
+
     return d
 
 
