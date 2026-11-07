@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Etapa de limpieza y enriquecimiento del dataset de MiBici.
 
@@ -9,52 +8,41 @@ Salida  : data/processed/mibici_viajes.parquet (banderas + features)
 Criterio de diseño: NO se borran filas salvo duplicados exactos (defecto de
 la fuente). Todo lo demás se MARCA con banderas booleanas, de modo que el
 conteo original siga disponible y cada decisión de filtrado sea explícita y
-auditable aguas abajo.
+auditable aguas abajo. Los umbrales se leen de la sección `limpiar` de
+params.yaml.
 
-Uso:
-    python scripts/limpiar_mibici.py
-    python scripts/limpiar_mibici.py --params params.yaml
+Uso (desde la raíz del proyecto):
+    python -m tc5044_mlops.limpieza
+
+Antes vivía en scripts/limpiar_mibici.py (se movió al paquete en la Fase 2).
 """
 
 from __future__ import annotations
 
-import argparse
-import json
-import re
-import unicodedata
 from datetime import datetime, timezone
+import json
 from pathlib import Path
 
+from loguru import logger
 import pandas as pd
+import typer
 
-DEFAULTS = {
-    "duracion_min_valida": 1.0,      # minutos; por debajo = retiro cancelado
-    "duracion_max_valida": 1440.0,   # minutos; por encima = bici no devuelta
-    "edad_min_valida": 12,
-    "edad_max_valida": 90,
-}
+from tc5044_mlops.config import (
+    INTERIM_DATA_DIR,
+    PROCESSED_DATA_DIR,
+    RAW_DATA_DIR,
+    REPORTS_DIR,
+    cargar_params,
+)
+from tc5044_mlops.dataset import slug
 
-
-def _slug(s: str) -> str:
-    s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "_", s.strip().lower()).strip("_")
-
-
-def cargar_params(ruta: Path | None) -> dict:
-    p = dict(DEFAULTS)
-    if ruta and ruta.exists():
-        try:
-            import yaml
-            cfg = yaml.safe_load(ruta.read_text(encoding="utf-8")) or {}
-            p.update((cfg.get("limpiar") or {}))
-        except ImportError:
-            print("[aviso] pyyaml no instalado; uso los valores por defecto")
-    return p
-
+app = typer.Typer(help="Limpieza y enriquecimiento del dataset MiBici.")
 
 def cargar_nomenclatura(ruta: Path) -> pd.DataFrame | None:
     """Catálogo de estaciones. Ojo: es una foto del estado ACTUAL del sistema,
     no un histórico, así que estaciones retiradas no aparecen."""
+    if not ruta.exists():
+        return None
     archivos = sorted(ruta.glob("*.csv")) if ruta.is_dir() else [ruta]
     if not archivos:
         return None
@@ -68,7 +56,7 @@ def cargar_nomenclatura(ruta: Path) -> pd.DataFrame | None:
     if df is None:
         return None
 
-    cols = {_slug(c): c for c in df.columns}
+    cols = {slug(c): c for c in df.columns}
     def buscar(*alias):
         return next((cols[a] for a in alias if a in cols), None)
 
@@ -96,22 +84,15 @@ def eliminar_duplicados_exactos(df: pd.DataFrame) -> pd.DataFrame:
     return df.drop_duplicates(keep="first").reset_index(drop=True)
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--entrada", default="data/interim/mibici_viajes.parquet")
-    ap.add_argument("--nomenclatura", default="data/raw/mibici/nomenclatura")
-    ap.add_argument("--salida", default="data/processed/mibici_viajes.parquet")
-    ap.add_argument("--reporte", default="reports/limpieza.json")
-    ap.add_argument("--params", default="params.yaml")
-    args = ap.parse_args()
-
-    par = cargar_params(Path(args.params))
-    df = pd.read_parquet(args.entrada)
+def limpiar(entrada: Path, nomenclatura: Path, salida: Path, reporte: Path,
+            par: dict | None = None) -> dict:
+    """Aplica la regla de limpieza y devuelve el reporte de métricas."""
+    par = par if par is not None else cargar_params("limpiar")
+    df = pd.read_parquet(entrada)
     n0 = len(df)
     rep: dict = {
         "generado": datetime.now(timezone.utc).isoformat(timespec="seconds"),
-        "entrada": args.entrada,
+        "entrada": str(entrada),
         "params": par,
         "viajes_entrada": n0,
     }
@@ -125,19 +106,9 @@ def main() -> None:
 
     # -- 2. bandera de validez por duración ---------------------------------
     dmin, dmax = par["duracion_min_valida"], par["duracion_max_valida"]
-    duracion = pd.to_numeric(
-    df["duracion_min"],
-    errors="coerce"
-    )
-
-    df["viaje_valido"] = (
-    duracion.notna()
-    & duracion.between(
-        dmin,
-        dmax,
-        inclusive="both"
-    )
-    )
+    duracion = pd.to_numeric(df["duracion_min"], errors="coerce")
+    # Una duración nula NO es válida (defecto corregido en el PR #2)
+    df["viaje_valido"] = duracion.notna() & duracion.between(dmin, dmax, inclusive="both")
 
     df["duracion_faltante"] = duracion.isna()
     df["duracion_corta"] = duracion < dmin
@@ -158,7 +129,7 @@ def main() -> None:
     print(f"edades imposibles anuladas    : {rep['edades_anuladas']:,}")
 
     # -- 4. join con el catálogo de estaciones ------------------------------
-    nom = cargar_nomenclatura(Path(args.nomenclatura))
+    nom = cargar_nomenclatura(Path(nomenclatura))
     if nom is not None:
         for lado in ("origen", "destino"):
             sub = nom.add_prefix(f"{lado}_").rename(
@@ -177,7 +148,7 @@ def main() -> None:
     # -- 5. features temporales ---------------------------------------------
     ini = df["inicio_viaje"]
     df["hora"] = ini.dt.hour.astype("Int8")
-    df["dia_semana"] = ini.dt.dayofweek.astype("Int8")   # 0=lunes
+    df["dia_semana"] = ini.dt.day_of_week.astype("Int8")   # 0=lunes
     df["es_fin_semana"] = df["dia_semana"].isin([5, 6])
     df["mes"] = ini.dt.month.astype("Int8")
     df["fecha"] = ini.dt.date
@@ -185,7 +156,7 @@ def main() -> None:
     rep["viajes_redondos"] = int(df["viaje_redondo"].sum())
 
     # -- 6. salida -----------------------------------------------------------
-    sal = Path(args.salida)
+    sal = Path(salida)
     sal.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(sal, index=False, compression="zstd")
 
@@ -194,14 +165,27 @@ def main() -> None:
     rep["salida"] = str(sal)
     rep["mb_salida"] = round(sal.stat().st_size / 1048576, 1)
 
-    rpt = Path(args.reporte)
+    rpt = Path(reporte)
     rpt.parent.mkdir(parents=True, exist_ok=True)
     rpt.write_text(json.dumps(rep, indent=2, ensure_ascii=False), encoding="utf-8")
 
     print(f"\n{len(df):,} viajes -> {sal} ({rep['mb_salida']} MB)")
     print(f"válidos para modelar: {rep['viajes_validos']:,} ({rep['pct_validos']} %)")
     print(f"reporte: {rpt}")
+    return rep
+
+
+@app.command()
+def main(
+    entrada: Path = typer.Option(INTERIM_DATA_DIR / "mibici_viajes.parquet"),
+    nomenclatura: Path = typer.Option(RAW_DATA_DIR / "mibici" / "nomenclatura"),
+    salida: Path = typer.Option(PROCESSED_DATA_DIR / "mibici_viajes.parquet"),
+    reporte: Path = typer.Option(REPORTS_DIR / "limpieza.json"),
+) -> None:
+    """Marca viajes inválidos, anula edades imposibles y une el catálogo de estaciones."""
+    limpiar(entrada, nomenclatura, salida, reporte)
+    logger.success("Limpieza completa.")
 
 
 if __name__ == "__main__":
-    main()
+    app()

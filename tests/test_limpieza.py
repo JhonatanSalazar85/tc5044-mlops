@@ -1,14 +1,10 @@
 """Regresiones de integridad sin descargas ni archivos Parquet."""
-import importlib.util
-from pathlib import Path
 import unittest
+
 import pandas as pd
 from pandas.testing import assert_frame_equal
 
-SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'limpiar_mibici.py'
-spec = importlib.util.spec_from_file_location('limpiar_mibici', SCRIPT)
-limpieza = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(limpieza)
+from tc5044_mlops import limpieza
 
 class TestDuplicadosExactos(unittest.TestCase):
     def test_elimina_solo_copias_completas(self):

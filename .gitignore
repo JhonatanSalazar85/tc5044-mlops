@@ -194,3 +194,13 @@ cython_debug/
 mlflow.db
 mlartifacts/
 mlruns/
+
+# Proyecto: los datos y salidas de otras actividades no van dentro de notebooks/
+notebooks/**/*.csv
+notebooks/**/*.zip
+notebooks/**/*.docx
+notebooks/**/*.pdf
+# Salidas de MLflow y del entrenamiento
+models/*.pkl
+models/*.joblib
+reports/predicciones*.parquet
