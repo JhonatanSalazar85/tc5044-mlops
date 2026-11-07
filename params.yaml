@@ -1,9 +1,14 @@
-# Parámetros del pipeline de datos MiBici (TC5044 - MLOps)
+# Parámetros del proyecto MiBici (TC5044 - MLOps, Equipo 15)
+# Única fuente de valores configurables: rutas, umbrales, hiperparámetros y semillas.
+# Los módulos los leen con `tc5044_mlops.config.cargar_params()`; ningún valor
+# de esta lista debe quedar escrito a mano dentro del código.
 # Cambiar un valor aquí y correr `dvc repro` re-ejecuta solo lo que depende de él.
+
+semilla: 42
 
 descargar:
   desde: "2025-01"
-  hasta: "2026-08"
+  hasta: "2026-08"      # 2026-09 se reserva como conjunto de inferencia (Fase 3)
 
 limpiar:
   # Umbrales de validez del viaje, en minutos.
@@ -14,3 +19,82 @@ limpiar:
   # Edad declarada por el usuario; fuera de rango se anula (no se borra la fila)
   edad_min_valida: 12
   edad_max_valida: 90
+
+features:
+  entrada: data/processed/mibici_viajes.parquet
+  salida: data/processed/mibici_demanda_horaria.parquet
+  top_estaciones: 50          # null = todas las estaciones (~472)
+  lags_horas: [1, 2, 24, 168]  # 1 h, 2 h, mismo día anterior, misma hora de la semana anterior
+  ventanas_moviles: [3, 24, 168]
+
+particion:
+  # Partición cronológica (nunca aleatoria): train < corte_val <= val < corte_test <= test
+  corte_val: "2026-05-01"
+  corte_test: "2026-07-01"
+
+pipeline:
+  objetivo: demanda
+  col_estacion: origen_id
+  col_hora: hora
+  col_fin_semana: es_fin_semana
+  numericas:
+    - hora_sin
+    - hora_cos
+    - dia_sin
+    - dia_cos
+    - mes_sin
+    - mes_cos
+    - es_fin_semana
+    - demanda_lag_1h
+    - demanda_lag_2h
+    - demanda_lag_24h
+    - demanda_lag_168h
+    - demanda_media_3h
+    - demanda_media_24h
+    - demanda_media_168h
+  target_encoder_cv: 5
+  pca_componentes: 3          # componentes del perfil horario de cada estación
+  clusters_estaciones: 4      # solo para el análisis de tipos de uso (figura)
+
+modelos:
+  # Modelos candidatos y sus hiperparámetros de partida.
+  baseline:
+    columna: demanda_lag_168h     # "misma hora de la semana pasada"
+    respaldo: demanda_media_24h
+  ridge:
+    alpha: 1.0
+  poisson:
+    alpha: 0.001
+    max_iter: 300
+  random_forest:
+    n_estimators: 60
+    max_depth: 12
+    min_samples_leaf: 20
+    max_samples: 0.3
+  hgb:
+    loss: poisson
+    learning_rate: 0.1
+    max_iter: 300
+    max_leaf_nodes: 31
+    min_samples_leaf: 40
+    l2_regularization: 0.0
+
+optuna:
+  # Búsqueda de hiperparámetros del HistGradientBoosting (TPE)
+  n_trials: 30
+  timeout_seg: 1800
+  fraccion_train: 1.0         # < 1.0 submuestrea el train para acelerar la búsqueda
+  espacio:
+    learning_rate: [0.02, 0.3]       # escala logarítmica
+    max_iter: [100, 600]
+    max_leaf_nodes: [15, 127]
+    min_samples_leaf: [10, 200]
+    l2_regularization: [0.000001, 10.0]  # escala logarítmica
+    max_features: [0.5, 1.0]
+
+mlflow:
+  # La URI se puede sobrescribir con la variable de entorno MLFLOW_TRACKING_URI
+  tracking_uri: sqlite:///mlflow.db
+  experimento: mibici-demanda-fase2
+  modelo_registrado: mibici-demanda-estacion-hora
+  metrica_seleccion: val_mae   # menor es mejor
