@@ -1,33 +1,37 @@
-#!/usr/bin/env python3
 """
-Versionado y trazabilidad de datasets con MLflow — TC5044 Fase 1.
+Versionado y trazabilidad de datasets con MLflow (Fase 1, refactorizado en la Fase 2).
 
 Registra cada versión del dataset de MiBici como una corrida de MLflow con:
   - el dataset como entrada formal (mlflow.data.from_pandas + log_input),
-    lo que deja asentados esquema, perfil y digest (hash) del conjunto;
+    que deja asentados esquema, perfil y digest del conjunto;
+  - el SHA-256 del archivo completo como etiqueta. El digest de MLflow solo
+    mira las primeras 10 000 filas: en la Fase 1 no detectó una corrección
+    que empezaba en la fila 14 592; el SHA-256 sí;
   - los parámetros que produjeron esa versión;
   - métricas de calidad comparables entre versiones;
   - el reporte de limpieza como artefacto.
 
-Esto es lo que permite responder "¿con qué datos exactos se entrenó?" meses
-después: el digest de MLflow identifica el contenido de forma unívoca.
+Uso (desde la raíz del proyecto):
+    python -m tc5044_mlops.versionado
+    python -m tc5044_mlops.versionado --experimento mibici-datasets
 
-Uso:
-    mlflow server --host 127.0.0.1 --port 5000      # en otra terminal
-    python scripts/versionar_mlflow.py
-    python scripts/versionar_mlflow.py --experimento mibici-datasets
+Antes vivía en scripts/versionar_mlflow.py.
 """
 
 from __future__ import annotations
 
-import argparse
 import json
-import os
-import warnings
 from pathlib import Path
+import warnings
 
 import mlflow
 import pandas as pd
+import typer
+
+from tc5044_mlops.config import INTERIM_DATA_DIR, PROCESSED_DATA_DIR, REPORTS_DIR, tracking_uri
+from tc5044_mlops.tracking import sha256_archivo
+
+app = typer.Typer(help="Versionado de datasets en MLflow.")
 
 warnings.filterwarnings("ignore", category=UserWarning, module="mlflow")
 
@@ -88,6 +92,7 @@ def registrar_version(
             "periodo_inicio": str(df["periodo"].min()),
             "periodo_fin": str(df["periodo"].max()),
             "formato": "parquet/zstd",
+            "dataset_sha256": sha256_archivo(ruta),
         })
 
         # El dataset como entrada formal: MLflow guarda esquema, perfil y digest.
@@ -119,30 +124,28 @@ def registrar_version(
         return run.info.run_id
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--interim", default="data/interim/mibici_viajes.parquet")
-    ap.add_argument("--processed", default="data/processed/mibici_viajes.parquet")
-    ap.add_argument("--reporte", default="reports/limpieza.json")
-    ap.add_argument("--experimento", default=EXPERIMENTO)
-    ap.add_argument("--tracking-uri", default=os.getenv("MLFLOW_TRACKING_URI",
-                                                        "http://localhost:5000"))
-    args = ap.parse_args()
-
-    mlflow.set_tracking_uri(args.tracking_uri)
-    mlflow.set_experiment(args.experimento)
-    print(f"tracking: {args.tracking_uri}  |  experimento: {args.experimento}\n")
+@app.command()
+def main(
+    interim: Path = typer.Option(INTERIM_DATA_DIR / "mibici_viajes.parquet"),
+    processed: Path = typer.Option(PROCESSED_DATA_DIR / "mibici_viajes.parquet"),
+    reporte: Path = typer.Option(REPORTS_DIR / "limpieza.json"),
+    experimento: str = typer.Option(EXPERIMENTO),
+) -> None:
+    """Registra las versiones v1 (consolidado) y v2 (limpio) del dataset."""
+    uri = tracking_uri()
+    mlflow.set_tracking_uri(uri)
+    mlflow.set_experiment(experimento)
+    print(f"tracking: {uri}  |  experimento: {experimento}\n")
 
     rep = {}
-    if (r := Path(args.reporte)).exists():
+    if (r := Path(reporte)).exists():
         rep = json.loads(r.read_text(encoding="utf-8"))
 
     runs = {}
 
     print("v1 — dataset consolidado (fiel a la fuente)")
     runs["v1_interim"] = registrar_version(
-        Path(args.interim),
+        Path(interim),
         nombre="mibici-v1-consolidado",
         etapa="consolidado",
         params={
@@ -153,19 +156,18 @@ def main() -> None:
 
     print("\nv2 — dataset limpio (banderas de validez + features temporales)")
     runs["v2_processed"] = registrar_version(
-        Path(args.processed),
+        Path(processed),
         nombre="mibici-v2-limpio",
         etapa="limpio",
         params=rep.get("params", {}) | {
             "duplicados_eliminados": rep.get("duplicados_eliminados", "n/d"),
             "regla_validez": "1 <= duracion_min <= 1440",
         },
-        artefactos=[Path(args.reporte)],
+        artefactos=[Path(reporte)],
     )
 
-    ui = (args.tracking_uri if args.tracking_uri.startswith("http")
-          else f"mlflow ui --backend-store-uri {args.tracking_uri}")
-    print(f"\nListo. Experimento '{args.experimento}' con {len([r for r in runs.values() if r])} "
+    ui = uri if uri.startswith("http") else f"mlflow ui --backend-store-uri {uri}"
+    print(f"\nListo. Experimento '{experimento}' con {len([r for r in runs.values() if r])} "
           f"versiones registradas.")
     print(f"UI: {ui}")
     print("En cada corrida, la pestaña 'Datasets' muestra esquema, perfil y digest.")
@@ -174,4 +176,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    app()

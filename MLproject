@@ -1,0 +1,27 @@
+# MLflow Projects: permite reproducir el proyecto con `mlflow run`.
+# En este equipo se ejecuta con el entorno ya creado por uv:
+#   mlflow run . -e train --env-manager local --experiment-name mibici-demanda-fase2
+#   mlflow run . -e train --env-manager local -P n_trials=10
+name: tc5044-mibici-demanda
+
+python_env: python_env.yaml
+
+entry_points:
+  features:
+    command: "python -m tc5044_mlops.features"
+
+  train:
+    parameters:
+      n_trials: {type: int, default: 30}
+      modelos: {type: str, default: "todos"}
+    command: "python -m tc5044_mlops.modeling.train --n-trials {n_trials} --modelos {modelos}"
+
+  predict:
+    parameters:
+      alias: {type: str, default: "champion"}
+    command: "python -m tc5044_mlops.modeling.predict --alias {alias}"
+
+  main:
+    parameters:
+      n_trials: {type: int, default: 30}
+    command: "python -m tc5044_mlops.modeling.train --n-trials {n_trials}"

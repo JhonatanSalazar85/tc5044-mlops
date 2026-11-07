@@ -1,0 +1,7 @@
+# Entorno para MLflow Projects (solo se usa con --env-manager virtualenv/uv).
+python: "3.11"
+build_dependencies:
+  - pip
+dependencies:
+  - -r requirements.txt
+  - -e .
