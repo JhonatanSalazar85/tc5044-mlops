@@ -1,18 +1,15 @@
-# Pipeline de datos MiBici - TC5044 Operaciones de aprendizaje automático
+# Pipeline MiBici - TC5044 Operaciones de aprendizaje automático
 # Reproducir todo:        dvc repro
 # Reproducir una etapa:   dvc repro limpiar
 # Ver el grafo:           dvc dag
+# Todos los parámetros se leen de params.yaml; el código vive en el paquete tc5044_mlops.
 
 stages:
 
   descargar:
-    cmd: >-
-      python scripts/mibici_dataset.py descargar
-      --out data/raw/mibici
-      --desde ${descargar.desde}
-      --hasta ${descargar.hasta}
+    cmd: python -m tc5044_mlops.dataset descargar --out data/raw/mibici
     deps:
-      - scripts/mibici_dataset.py
+      - tc5044_mlops/dataset.py
     params:
       - descargar.desde
       - descargar.hasta
@@ -23,34 +20,50 @@ stages:
     # MD5 queda dentro del out y es lo que fija qué bytes se usaron.
 
   consolidar:
-    cmd: >-
-      python scripts/mibici_dataset.py consolidar
-      --in data/raw/mibici
-      --out data/interim/mibici_viajes.parquet
+    cmd: python -m tc5044_mlops.dataset consolidar --in data/raw/mibici --out data/interim/mibici_viajes.parquet
     deps:
-      - scripts/mibici_dataset.py
+      - tc5044_mlops/dataset.py
       - data/raw/mibici
     outs:
       - data/interim/mibici_viajes.parquet
 
   limpiar:
-    cmd: >-
-      python scripts/limpiar_mibici.py
-      --entrada data/interim/mibici_viajes.parquet
-      --nomenclatura data/raw/mibici/nomenclatura
-      --salida data/processed/mibici_viajes.parquet
-      --reporte reports/limpieza.json
+    cmd: python -m tc5044_mlops.limpieza
     deps:
-      - scripts/limpiar_mibici.py
+      - tc5044_mlops/limpieza.py
       - data/interim/mibici_viajes.parquet
       - data/raw/mibici/nomenclatura
     params:
-      - limpiar.duracion_min_valida
-      - limpiar.duracion_max_valida
-      - limpiar.edad_min_valida
-      - limpiar.edad_max_valida
+      - limpiar
     outs:
       - data/processed/mibici_viajes.parquet
     metrics:
       - reports/limpieza.json:
+          cache: false
+
+  features:
+    cmd: python -m tc5044_mlops.features
+    deps:
+      - tc5044_mlops/features.py
+      - data/processed/mibici_viajes.parquet
+    params:
+      - features
+    outs:
+      - data/processed/mibici_demanda_horaria.parquet
+
+  train:
+    cmd: python -m tc5044_mlops.modeling.train
+    deps:
+      - tc5044_mlops/pipeline.py
+      - tc5044_mlops/modeling
+      - data/processed/mibici_demanda_horaria.parquet
+    params:
+      - semilla
+      - particion
+      - pipeline
+      - modelos
+      - optuna
+      - mlflow
+    metrics:
+      - reports/metricas_fase2.json:
           cache: false

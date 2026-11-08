@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Control de calidad del dataset consolidado de MiBici.
 
@@ -6,25 +5,25 @@ Revisa lo que el resumen de `consolidar` no muestra: duplicados, duraciones
 imposibles, edades absurdas, cobertura temporal con huecos y estaciones que
 aparecen en los viajes pero no en la nomenclatura.
 
-Uso:
-    python scripts/qa_mibici.py
-    python scripts/qa_mibici.py --parquet data/interim/mibici_viajes.parquet \
-                                --nomenclatura data/raw/mibici/nomenclatura
+Uso (desde la raíz del proyecto):
+    python -m tc5044_mlops.calidad
+
+Antes vivía en scripts/qa_mibici.py (se movió al paquete en la Fase 2). La
+lectura del catálogo de estaciones ya no está duplicada: se reutiliza
+`limpieza.cargar_nomenclatura`.
 """
 
 from __future__ import annotations
 
-import argparse
-import re
-import unicodedata
 from pathlib import Path
 
 import pandas as pd
+import typer
 
+from tc5044_mlops.config import INTERIM_DATA_DIR, RAW_DATA_DIR
+from tc5044_mlops.limpieza import cargar_nomenclatura
 
-def _slug(s: str) -> str:
-    s = unicodedata.normalize("NFKD", str(s)).encode("ascii", "ignore").decode()
-    return re.sub(r"[^a-z0-9]+", "_", s.strip().lower()).strip("_")
+app = typer.Typer(help="Control de calidad del dataset MiBici.")
 
 
 def _pct(n: int, total: int) -> str:
@@ -35,51 +34,13 @@ def _seccion(titulo: str) -> None:
     print(f"\n{'─'*68}\n{titulo}\n{'─'*68}")
 
 
-def cargar_nomenclatura(ruta: Path) -> pd.DataFrame | None:
-    """Lee el CSV de estaciones y detecta las columnas id / lat / lon."""
-    archivos = sorted(ruta.glob("*.csv")) if ruta.is_dir() else [ruta]
-    if not archivos:
-        return None
-
-    df = None
-    for enc in ("utf-8", "utf-8-sig", "latin-1"):
-        try:
-            df = pd.read_csv(archivos[-1], encoding=enc)
-            break
-        except UnicodeDecodeError:
-            continue
-    if df is None:
-        return None
-
-    cols = {_slug(c): c for c in df.columns}
-    def buscar(*alias):
-        for a in alias:
-            if a in cols:
-                return cols[a]
-        return None
-
-    c_id = buscar("id", "station_id", "estacion_id", "id_estacion")
-    c_lat = buscar("latitude", "latitud", "lat")
-    c_lon = buscar("longitude", "longitud", "lon", "lng")
-    if not c_id:
-        print(f"  [aviso] no reconocí la columna de id. Columnas: {list(df.columns)}")
-        return None
-
-    out = df.rename(columns={c_id: "estacion_id"})
-    if c_lat and c_lon:
-        out = out.rename(columns={c_lat: "latitud", c_lon: "longitud"})
-    out["estacion_id"] = pd.to_numeric(out["estacion_id"], errors="coerce").astype("Int64")
-    return out
-
-
-def main() -> None:
-    ap = argparse.ArgumentParser(description=__doc__,
-                                 formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--parquet", default="data/interim/mibici_viajes.parquet")
-    ap.add_argument("--nomenclatura", default="data/raw/mibici/nomenclatura")
-    args = ap.parse_args()
-
-    df = pd.read_parquet(args.parquet)
+@app.command()
+def main(
+    parquet: Path = typer.Option(INTERIM_DATA_DIR / "mibici_viajes.parquet"),
+    nomenclatura: Path = typer.Option(RAW_DATA_DIR / "mibici" / "nomenclatura"),
+) -> None:
+    """Imprime el diagnóstico de calidad del dataset consolidado."""
+    df = pd.read_parquet(parquet)
     n = len(df)
     print(f"{n:,} viajes  |  {df['periodo'].min()} a {df['periodo'].max()}")
 
@@ -138,7 +99,7 @@ def main() -> None:
 
     # ------------------------------------------------------------------
     _seccion("6. Estaciones")
-    nom = cargar_nomenclatura(Path(args.nomenclatura))
+    nom = cargar_nomenclatura(Path(nomenclatura))
     usadas = pd.unique(pd.concat([df["origen_id"], df["destino_id"]]).dropna())
     print(f"estaciones distintas en viajes : {len(usadas):,}")
     if nom is not None:
@@ -170,4 +131,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    app()

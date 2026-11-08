@@ -14,7 +14,8 @@ PYTHON_INTERPRETER = python
 ## Install Python dependencies
 .PHONY: requirements
 requirements:
-	uv pip install -r requirements.txt
+	uv pip install -r requirements.txt -c constraints.txt
+	uv pip install -e .
 	
 
 
@@ -62,10 +63,50 @@ create_environment:
 #################################################################################
 
 
-## Make dataset
+## Descargar los CSV de MiBici (rango de params.yaml)
 .PHONY: data
-data: requirements
-	$(PYTHON_INTERPRETER) tc5044_mlops/dataset.py
+data:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.dataset descargar
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.dataset consolidar
+
+## Control de calidad del dataset consolidado
+.PHONY: calidad
+calidad:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.calidad
+
+## Limpiar y enriquecer el dataset (umbrales en params.yaml)
+.PHONY: limpiar
+limpiar:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.limpieza
+
+## Construir la tabla de modelado estación × hora
+.PHONY: features
+features:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.features
+
+## Entrenar, ajustar (Optuna) y registrar los modelos en MLflow
+.PHONY: train
+train:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.modeling.train
+
+## Entrenamiento rápido sin Optuna (para revisar que todo corre)
+.PHONY: train-rapido
+train-rapido:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.modeling.train --n-trials 0
+
+## Predecir con el modelo campeón del Model Registry
+.PHONY: predict
+predict:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.modeling.predict
+
+## Levantar el servidor de MLflow (UI en http://127.0.0.1:5000)
+.PHONY: mlflow-server
+mlflow-server:
+	mlflow server --backend-store-uri sqlite:///mlflow.db --host 127.0.0.1 --port 5000
+
+## Pipeline completo de datos a modelo registrado
+.PHONY: all
+all: data limpiar features train
 
 
 #################################################################################
