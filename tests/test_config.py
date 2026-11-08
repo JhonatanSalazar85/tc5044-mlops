@@ -5,7 +5,7 @@ from tc5044_mlops import config
 
 def test_params_tiene_las_secciones_del_pipeline():
     params = config.cargar_params()
-    for seccion in ("semilla", "limpiar", "features", "particion", "pipeline",
+    for seccion in ("semilla", "descargar", "limpiar", "features", "particion", "pipeline",
                     "modelos", "optuna", "mlflow"):
         assert seccion in params, f"falta la sección {seccion} en params.yaml"
 
