@@ -98,3 +98,59 @@ mlflow:
   experimento: mibici-demanda-fase2
   modelo_registrado: mibici-demanda-estacion-hora
   metrica_seleccion: val_mae   # menor es mejor
+
+# ---------------------------------------------------------------------------
+# Fase 3: exportación, servicio, reproducibilidad y monitoreo de drift
+# ---------------------------------------------------------------------------
+exportar:
+  alias: champion               # alias del Model Registry que se empaqueta
+  destino: models/champion      # carpeta autocontenida que viaja en la imagen (DVC)
+  muestra_referencia: 2000      # filas de validación del "golden set" con su predicción esperada
+  tolerancia: 1.0e-9            # diferencia máxima admitida al reproducir predicciones
+
+api:
+  titulo: "MiBici: demanda de retiros por estación y hora"
+  version: "1.0.0"              # versión del servicio (etiqueta de la imagen)
+  modelo_dir: models/champion   # la variable de entorno MODELO_DIR tiene prioridad
+  max_registros: 5000           # filas máximas por petición a POST /predict
+  zona_horaria: America/Mexico_City   # las horas con zona se convierten a hora local
+
+drift:
+  # Conjunto de referencia: validación (mayo-junio 2026), con el que se eligió el campeón.
+  # Se monitorean los rezagos y medias móviles: las variables de calendario son
+  # deterministas y cambian por diseño (otro mes = otro mes_sin), así que no se vigilan.
+  columnas:
+    - demanda_lag_1h
+    - demanda_lag_2h
+    - demanda_lag_24h
+    - demanda_lag_168h
+    - demanda_media_3h
+    - demanda_media_24h
+    - demanda_media_168h
+  bins_psi: 10
+  psi_aviso: 0.1                # PSI < 0.1 estable; 0.1-0.2 aviso; > 0.2 alerta
+  psi_alerta: 0.2
+  ks_alerta: 0.1                # estadístico KS (con n grande el p-valor siempre es ~0)
+  fraccion_columnas_alerta: 0.3 # drift del dataset si >= 30 % de las columnas está en alerta
+  nulos_alerta: 0.05            # aumento absoluto de la tasa de nulos de una columna
+  inconsistencia_alerta: 0.05   # filas cuyo lag_1h no coincide con la demanda observada 1 h antes
+  mae_aviso: 0.05               # MAE +5 % sobre la línea base (validación) -> aviso
+  mae_alerta: 0.15              # MAE +15 % -> alerta de desempeño
+  muestra_evidently: 20000      # filas por conjunto para el reporte HTML de Evidently
+  salida: reports/drift
+  experimento: mibici-monitoreo-fase3
+  escenarios:
+    desplazamiento_medias:      # error aguas arriba: la ingesta cuenta de más los retiros recientes
+      columnas: [demanda_lag_1h, demanda_lag_2h, demanda_lag_24h, demanda_lag_168h,
+                 demanda_media_3h, demanda_media_24h, demanda_media_168h]
+      factor: 1.5
+    features_faltantes:         # cae el feed en tiempo real: solo llegan los rezagos diarios
+      columnas: [demanda_lag_1h, demanda_lag_2h, demanda_media_3h]
+      fraccion: 1.0
+    cambio_estacional:          # temporada de lluvias: tormentas por la tarde reducen el uso
+      horas: [14, 20]
+      factor: 0.55
+    crecimiento_demanda:        # nuevas ciclovías o temporada alta: más viajes en todas las horas
+      factor: 1.4
+    severidad:                  # curva: desplazamiento de medias con factores crecientes
+      factores: [1.0, 1.1, 1.2, 1.3, 1.5, 1.75, 2.0]

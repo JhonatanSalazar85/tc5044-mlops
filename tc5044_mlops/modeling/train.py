@@ -51,6 +51,7 @@ from tc5044_mlops.modeling.models import (
 )
 from tc5044_mlops.modeling.tune import optimizar_hgb
 from tc5044_mlops.pipeline import agrupar_estaciones, columnas_entrada, construir_pipeline
+from tc5044_mlops.reproducibilidad import fijar_semillas
 from tc5044_mlops.tracking import (
     TIPOS_PROPIOS,
     a_json,
@@ -209,6 +210,7 @@ def ejecutar(tabla: pd.DataFrame | None = None, ruta_tabla: str | Path | None = 
     dir_figuras = Path(dir_figuras or FIGURES_DIR)
     dir_figuras.mkdir(parents=True, exist_ok=True)
 
+    fijar_semillas(params["semilla"])
     configurar_mlflow(params)
     datos = preparar_datos(tabla, params)
 
