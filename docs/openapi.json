@@ -1,0 +1,566 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "MiBici: demanda de retiros por estación y hora",
+    "description": "\nPredice cuántas bicicletas se **retirarán** de una estación de MiBici (Guadalajara) en una hora\ndada, para que el operador pase de un rebalanceo reactivo a uno preventivo.\n\n* Horizonte: **1 hora** (el modelo usa la demanda de la hora anterior).\n* Modelo: `HistGradientBoostingRegressor` con pérdida Poisson dentro de un `Pipeline` de\n  scikit-learn (imputación + escalado, `TargetEncoder` de la estación y PCA del perfil horario),\n  registrado en MLflow como `mibici-demanda-estacion-hora` con alias `@champion`.\n* Las variables de calendario las calcula el servicio a partir de `fecha_hora`.\n\nProyecto TC5044 Operaciones de aprendizaje automático (Tec de Monterrey), Equipo 15.\n",
+    "version": "1.0.0"
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "operación"
+        ],
+        "summary": "Health",
+        "description": "200 con el modelo cargado; 503 si la carga falló (lo usa el HEALTHCHECK).",
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Salud"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El modelo no está cargado."
+          }
+        }
+      }
+    },
+    "/model-info": {
+      "get": {
+        "tags": [
+          "modelo"
+        ],
+        "summary": "Model Info",
+        "description": "Ficha del modelo desplegado: URI del Registry, versión, métricas y SHA-256.",
+        "operationId": "model_info_model_info_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InfoModelo"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El modelo no está cargado."
+          }
+        }
+      }
+    },
+    "/predict": {
+      "post": {
+        "tags": [
+          "predicción"
+        ],
+        "summary": "Predict",
+        "description": "Predice la demanda de retiros para cada registro (estación, hora, rezagos).",
+        "operationId": "predict_predict_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SolicitudPrediccion"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RespuestaPrediccion"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "El modelo no está cargado."
+          },
+          "422": {
+            "description": "Entrada inválida (por campo)."
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "InfoModelo": {
+        "properties": {
+          "nombre": {
+            "type": "string",
+            "title": "Nombre"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "alias": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Alias"
+          },
+          "model_uri": {
+            "type": "string",
+            "title": "Model Uri"
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "modelo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelo",
+            "description": "Candidato ganador (p. ej. hgb_optuna)."
+          },
+          "algoritmo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Algoritmo"
+          },
+          "metricas_validacion_prueba": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Metricas Validacion Prueba",
+            "description": "Métricas recalculadas al exportar."
+          },
+          "hiperparametros": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hiperparametros"
+          },
+          "columnas_entrada": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Columnas Entrada"
+          },
+          "sha256_modelo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sha256 Modelo"
+          },
+          "git_commit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Git Commit"
+          },
+          "exportado_utc": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exportado Utc"
+          },
+          "entorno_exportacion": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entorno Exportacion"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nombre",
+          "version",
+          "model_uri",
+          "columnas_entrada"
+        ],
+        "title": "InfoModelo"
+      },
+      "Prediccion": {
+        "properties": {
+          "origen_id": {
+            "type": "integer",
+            "title": "Origen Id"
+          },
+          "fecha_hora": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora",
+            "description": "Hora predicha (local, truncada a la hora)."
+          },
+          "prediccion": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Prediccion",
+            "description": "Retiros esperados en esa hora (bicis/h)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "origen_id",
+          "fecha_hora",
+          "prediccion"
+        ],
+        "title": "Prediccion"
+      },
+      "RegistroDemanda": {
+        "properties": {
+          "origen_id": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Origen Id",
+            "description": "Id de la estación de retiro (catálogo MiBici)."
+          },
+          "fecha_hora": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Fecha Hora",
+            "description": "Inicio de la hora a predecir, en hora local de Guadalajara. Se trunca a la hora; si trae zona horaria se convierte a America/Mexico_City."
+          },
+          "demanda_lag_1h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demanda Lag 1H",
+            "description": "Retiros en la hora anterior."
+          },
+          "demanda_lag_2h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demanda Lag 2H",
+            "description": "Retiros hace 2 horas."
+          },
+          "demanda_lag_24h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demanda Lag 24H",
+            "description": "Retiros a la misma hora del día anterior."
+          },
+          "demanda_lag_168h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demanda Lag 168H",
+            "description": "Retiros a la misma hora de la semana anterior."
+          },
+          "demanda_media_3h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demanda Media 3H",
+            "description": "Media de retiros de las 3 horas previas."
+          },
+          "demanda_media_24h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demanda Media 24H",
+            "description": "Media de retiros de las 24 horas previas."
+          },
+          "demanda_media_168h": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1000.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Demanda Media 168H",
+            "description": "Media de retiros de las 168 horas previas."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "origen_id",
+          "fecha_hora"
+        ],
+        "title": "RegistroDemanda",
+        "description": "Una estación en una hora: entrada de una predicción.",
+        "examples": [
+          {
+            "demanda_lag_168h": 28,
+            "demanda_lag_1h": 18,
+            "demanda_lag_24h": 31,
+            "demanda_lag_2h": 9,
+            "demanda_media_168h": 10.64,
+            "demanda_media_24h": 11.21,
+            "demanda_media_3h": 10.33,
+            "fecha_hora": "2026-08-31T08:00:00",
+            "origen_id": 51
+          }
+        ]
+      },
+      "RespuestaPrediccion": {
+        "properties": {
+          "modelo": {
+            "type": "string",
+            "title": "Modelo",
+            "description": "Nombre del modelo registrado en MLflow."
+          },
+          "version_modelo": {
+            "type": "string",
+            "title": "Version Modelo",
+            "description": "Versión del Model Registry."
+          },
+          "model_uri": {
+            "type": "string",
+            "title": "Model Uri",
+            "description": "URI del artefacto: models:/<nombre>/<versión>."
+          },
+          "version_api": {
+            "type": "string",
+            "title": "Version Api"
+          },
+          "n_registros": {
+            "type": "integer",
+            "title": "N Registros"
+          },
+          "predicciones": {
+            "items": {
+              "$ref": "#/components/schemas/Prediccion"
+            },
+            "type": "array",
+            "title": "Predicciones"
+          },
+          "advertencias": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Advertencias",
+            "description": "Avisos no bloqueantes (estación nueva, rezagos imputados)."
+          }
+        },
+        "type": "object",
+        "required": [
+          "modelo",
+          "version_modelo",
+          "model_uri",
+          "version_api",
+          "n_registros",
+          "predicciones"
+        ],
+        "title": "RespuestaPrediccion"
+      },
+      "Salud": {
+        "properties": {
+          "estado": {
+            "type": "string",
+            "title": "Estado",
+            "description": "'ok' si el modelo está cargado."
+          },
+          "modelo_cargado": {
+            "type": "boolean",
+            "title": "Modelo Cargado"
+          },
+          "version_api": {
+            "type": "string",
+            "title": "Version Api"
+          },
+          "modelo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modelo"
+          },
+          "version_modelo": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version Modelo"
+          },
+          "detalle": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Detalle"
+          }
+        },
+        "type": "object",
+        "required": [
+          "estado",
+          "modelo_cargado",
+          "version_api"
+        ],
+        "title": "Salud"
+      },
+      "SolicitudPrediccion": {
+        "properties": {
+          "registros": {
+            "items": {
+              "$ref": "#/components/schemas/RegistroDemanda"
+            },
+            "type": "array",
+            "maxItems": 5000,
+            "minItems": 1,
+            "title": "Registros",
+            "description": "Entre 1 y 5000 registros."
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "registros"
+        ],
+        "title": "SolicitudPrediccion",
+        "description": "Cuerpo de ``POST /predict``: uno o varios registros (predicción por lote).",
+        "examples": [
+          {
+            "registros": [
+              {
+                "demanda_lag_168h": 28,
+                "demanda_lag_1h": 18,
+                "demanda_lag_24h": 31,
+                "demanda_lag_2h": 9,
+                "demanda_media_168h": 10.64,
+                "demanda_media_24h": 11.21,
+                "demanda_media_3h": 10.33,
+                "fecha_hora": "2026-08-31T08:00:00",
+                "origen_id": 51
+              }
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "tags": [
+    {
+      "name": "operación",
+      "description": "Salud del servicio."
+    },
+    {
+      "name": "modelo",
+      "description": "Ficha del modelo desplegado."
+    },
+    {
+      "name": "predicción",
+      "description": "Inferencia de demanda estación × hora."
+    }
+  ]
+}
