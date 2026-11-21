@@ -1,0 +1,143 @@
+{
+  "info": {
+    "name": "MiBici demanda - API (Equipo 15)",
+    "_postman_id": "6f0b1e2a-15a0-4c3e-9b1d-mibici000015",
+    "description": "Servicio FastAPI del modelo models:/mibici-demanda-estacion-hora/1 (@champion). Ver docs/api.md.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://127.0.0.1:8000"
+    }
+  ],
+  "item": [
+    {
+      "name": "Salud",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/health",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "health"
+          ]
+        },
+        "description": "200 si el modelo está cargado; 503 si no."
+      }
+    },
+    {
+      "name": "Ficha del modelo",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/model-info",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "model-info"
+          ]
+        },
+        "description": "URI, versión, métricas y SHA-256 del modelo."
+      }
+    },
+    {
+      "name": "Predicción (1 registro)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/predict",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "predict"
+          ]
+        },
+        "description": "",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"registros\": [\n    {\n      \"origen_id\": 51,\n      \"fecha_hora\": \"2026-08-31T08:00:00\",\n      \"demanda_lag_1h\": 18,\n      \"demanda_lag_2h\": 9,\n      \"demanda_lag_24h\": 31,\n      \"demanda_lag_168h\": 28,\n      \"demanda_media_3h\": 10.33,\n      \"demanda_media_24h\": 11.21,\n      \"demanda_media_168h\": 10.64\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Predicción con rezagos faltantes",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/predict",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "predict"
+          ]
+        },
+        "description": "Devuelve 200 con una advertencia de imputación.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"registros\": [\n    {\n      \"origen_id\": 51,\n      \"fecha_hora\": \"2026-08-31T08:00:00\",\n      \"demanda_lag_24h\": 31\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "Entrada inválida (422)",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/predict",
+          "host": [
+            "{{baseUrl}}"
+          ],
+          "path": [
+            "predict"
+          ]
+        },
+        "description": "Pydantic rechaza origen_id <= 0 y demandas negativas.",
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"registros\": [\n    {\n      \"origen_id\": 0,\n      \"fecha_hora\": \"2026-08-31T08:00:00\",\n      \"demanda_lag_1h\": -3\n    }\n  ]\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        }
+      }
+    }
+  ]
+}
