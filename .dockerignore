@@ -1,0 +1,26 @@
+# Contexto de construcción de la imagen: solo código, configuración y el modelo exportado.
+# (Podman lee este archivo igual que Docker.)
+.git
+.github
+.dvc/cache
+.dvc/tmp
+.venv
+venv
+**/__pycache__
+**/*.py[cod]
+.pytest_cache
+.ruff_cache
+.ipynb_checkpoints
+.env
+data/
+mlflow.db
+mlruns/
+mlartifacts/
+notebooks/
+reports/
+references/
+docs/
+tests/
+uv.lock
+models/*
+!models/champion

@@ -1,0 +1,15 @@
+# Dependencias del servicio de predicción (imagen de contenedor).
+# Se instalan JUNTO con models/champion/requirements.txt, que MLflow genera con las versiones
+# exactas del entorno de entrenamiento (scikit-learn, pandas, numpy, scipy, skops, ...).
+# En el contenedor mlflow se instala como mlflow-skinny de la misma versión: el mismo código
+# de carga de modelos, sin servidor ni UI (la imagen pesa cientos de MB menos).
+# Las versiones coinciden con requirements.txt (lo verifica tests/test_contenedor.py).
+fastapi==0.141.1
+starlette==1.6.0
+pydantic==2.13.5
+pydantic-core==2.46.5
+uvicorn==0.53.0
+uvloop==0.22.1
+httptools==0.8.0
+pyarrow==25.0.1
+tzdata==2026.4
