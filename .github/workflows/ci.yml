@@ -7,7 +7,6 @@ on:
 jobs:
   # El id "test" es el check obligatorio de la protección de la rama main: no renombrar.
   test:
-    name: test (pytest -q)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
