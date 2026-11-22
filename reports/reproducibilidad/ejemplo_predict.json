@@ -1,0 +1,1 @@
+{"modelo":"mibici-demanda-estacion-hora","version_modelo":"1","model_uri":"models:/mibici-demanda-estacion-hora/1","version_api":"1.0.0","n_registros":1,"predicciones":[{"origen_id":51,"fecha_hora":"2026-08-31T08:00:00","prediccion":30.45682937067756}],"advertencias":[]}

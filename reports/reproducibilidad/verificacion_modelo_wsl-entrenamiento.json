@@ -1,0 +1,78 @@
+{
+  "verificacion": "prediccion_golden_set",
+  "fecha_utc": "2026-11-20T20:42:54+00:00",
+  "modelo": {
+    "nombre": "mibici-demanda-estacion-hora",
+    "version": "1",
+    "model_uri": "models:/mibici-demanda-estacion-hora/1",
+    "run_id": "7c0a4aea66a64f6cbfd9ffd1110cc299"
+  },
+  "comparacion": {
+    "filas": 2000,
+    "max_abs_diff": 0.0,
+    "media_abs_diff": 0.0,
+    "filas_fuera_tolerancia": 0,
+    "identicas_bit_a_bit": true,
+    "tolerancia": 1e-09,
+    "dentro_tolerancia": true
+  },
+  "metricas_referencia_esperadas": {
+    "mae": 1.3628439939089045,
+    "rmse": 2.278618822611153,
+    "wape": 0.445665138622925,
+    "devianza_poisson": 1.1277874713688416,
+    "r2": 0.6780616986421422
+  },
+  "metricas_referencia_obtenidas": {
+    "mae": 1.3628439939089045,
+    "rmse": 2.278618822611153,
+    "wape": 0.445665138622925,
+    "devianza_poisson": 1.1277874713688416,
+    "r2": 0.6780616986421422
+  },
+  "segundos_inferencia": 0.052897674000178085,
+  "entorno_actual": {
+    "entorno": "wsl-entrenamiento",
+    "python": "3.11.16",
+    "implementacion": "CPython",
+    "sistema": "Linux",
+    "plataforma": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "arquitectura": "x86_64",
+    "en_contenedor": false,
+    "paquetes": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "scikit-learn": "1.7.2",
+      "scipy": "1.17.1",
+      "mlflow": "3.16.1",
+      "mlflow-skinny": "3.16.1",
+      "skops": "0.15.0",
+      "fastapi": "0.141.1",
+      "pydantic": "2.13.5",
+      "uvicorn": "0.53.0",
+      "evidently": "0.7.23"
+    }
+  },
+  "entorno_exportacion": {
+    "entorno": "local",
+    "python": "3.11.16",
+    "implementacion": "CPython",
+    "sistema": "Linux",
+    "plataforma": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "arquitectura": "x86_64",
+    "en_contenedor": false,
+    "paquetes": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "scikit-learn": "1.7.2",
+      "scipy": "1.17.1",
+      "mlflow": "3.16.1",
+      "mlflow-skinny": "3.16.1",
+      "skops": "0.15.0",
+      "fastapi": "0.141.1",
+      "pydantic": "2.13.5",
+      "uvicorn": "0.53.0",
+      "evidently": "0.7.23"
+    }
+  }
+}

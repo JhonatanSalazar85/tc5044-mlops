@@ -1,0 +1,89 @@
+{
+  "verificacion": "reentrenamiento_con_semilla",
+  "fecha_utc": "2026-11-20T20:45:20+00:00",
+  "modelo": {
+    "nombre": "mibici-demanda-estacion-hora",
+    "version": "1",
+    "model_uri": "models:/mibici-demanda-estacion-hora/1",
+    "run_id": "7c0a4aea66a64f6cbfd9ffd1110cc299"
+  },
+  "semilla": 42,
+  "filas_train": 582000,
+  "segundos_entrenamiento": 24.187505455999826,
+  "metricas_reentrenado": {
+    "val_mae": 1.3344103368413591,
+    "val_rmse": 2.288893709975804,
+    "val_wape": 0.44400278485421324,
+    "val_devianza_poisson": 1.1446258625984962,
+    "val_r2": 0.7191824534480782,
+    "test_mae": 1.4413004689958913,
+    "test_rmse": 2.3403803361679647,
+    "test_wape": 0.40690292293705677,
+    "test_devianza_poisson": 1.1254153452825597,
+    "test_r2": 0.7422644080627862
+  },
+  "metricas_originales": {
+    "val_mae": 1.3344103368413591,
+    "val_rmse": 2.288893709975804,
+    "val_wape": 0.44400278485421324,
+    "val_devianza_poisson": 1.1446258625984962,
+    "val_r2": 0.7191824534480782,
+    "test_mae": 1.4413004689958913,
+    "test_rmse": 2.3403803361679647,
+    "test_wape": 0.40690292293705677,
+    "test_devianza_poisson": 1.1254153452825597,
+    "test_r2": 0.7422644080627862
+  },
+  "max_dif_metricas": 0.0,
+  "comparacion_golden_set": {
+    "filas": 2000,
+    "max_abs_diff": 0.0,
+    "media_abs_diff": 0.0,
+    "filas_fuera_tolerancia": 0,
+    "identicas_bit_a_bit": true,
+    "tolerancia": 1e-09,
+    "dentro_tolerancia": true
+  },
+  "entorno_actual": {
+    "entorno": "contenedor",
+    "python": "3.11.16",
+    "implementacion": "CPython",
+    "sistema": "Linux",
+    "plataforma": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.41",
+    "arquitectura": "x86_64",
+    "en_contenedor": true,
+    "paquetes": {
+      "numpy": "2.4.6",
+      "pandas": "3.1.1",
+      "scikit-learn": "1.7.2",
+      "scipy": "1.17.1",
+      "mlflow-skinny": "3.16.1",
+      "skops": "0.15.0",
+      "fastapi": "0.141.1",
+      "pydantic": "2.13.5",
+      "uvicorn": "0.53.0"
+    }
+  },
+  "entorno_exportacion": {
+    "entorno": "local",
+    "python": "3.11.16",
+    "implementacion": "CPython",
+    "sistema": "Linux",
+    "plataforma": "Linux-6.18.33.2-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "arquitectura": "x86_64",
+    "en_contenedor": false,
+    "paquetes": {
+      "numpy": "2.4.6",
+      "pandas": "3.0.6",
+      "scikit-learn": "1.7.2",
+      "scipy": "1.17.1",
+      "mlflow": "3.16.1",
+      "mlflow-skinny": "3.16.1",
+      "skops": "0.15.0",
+      "fastapi": "0.141.1",
+      "pydantic": "2.13.5",
+      "uvicorn": "0.53.0",
+      "evidently": "0.7.23"
+    }
+  }
+}

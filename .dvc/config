@@ -1,0 +1,6 @@
+[cache]
+    type = "hardlink,symlink"
+[core]
+    remote = almacen-local
+['remote "almacen-local"']
+    url = /home/jhonatan0925/dvc-store/tc5044-mlops
