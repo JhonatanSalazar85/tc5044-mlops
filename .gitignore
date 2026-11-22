@@ -204,3 +204,9 @@ notebooks/**/*.pdf
 models/*.pkl
 models/*.joblib
 reports/predicciones*.parquet
+
+# Fase 3
+# El modelo exportado lo versiona DVC (etapa `exportar`); en Git solo queda su hash en dvc.lock
+/models/champion
+# Reportes HTML de Evidently (pesados): se guardan como artefactos de MLflow
+reports/drift/*.html

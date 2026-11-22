@@ -6,6 +6,14 @@ PROJECT_NAME = tc5044-mlops
 PYTHON_VERSION = 3.11
 PYTHON_INTERPRETER = python
 
+# Fase 3: contenedor (Podman por defecto; `make imagen MOTOR=docker` para Docker)
+MOTOR ?= podman
+IMAGEN_LOCAL ?= ml-service:latest
+IMAGEN ?= docker.io/jhonatan0925/mibici-demanda-api
+VERSION ?= 1.0.0
+MODELO_V ?= 1
+FORMATO = $(if $(filter podman,$(MOTOR)),--format docker,)
+
 #################################################################################
 # COMMANDS                                                                      #
 #################################################################################
@@ -41,10 +49,10 @@ format:
 
 
 
-## Run tests
+## Run tests (unitarias + integración): un solo comando
 .PHONY: test
 test:
-	python -m pytest tests
+	python -m pytest -q
 
 
 ## Set up Python interpreter environment
@@ -107,6 +115,72 @@ mlflow-server:
 ## Pipeline completo de datos a modelo registrado
 .PHONY: all
 all: data limpiar features train
+
+#################################################################################
+# FASE 3: SERVICIO, CONTENEDOR, REPRODUCIBILIDAD Y DRIFT                        #
+#################################################################################
+
+## Exportar el modelo @champion del Registry a models/champion (+ golden set)
+.PHONY: exportar
+exportar:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.modeling.exportar
+
+## Verificar que el modelo exportado reproduce el golden set en este entorno
+.PHONY: verificar-modelo
+verificar-modelo:
+	ENTORNO=wsl-entrenamiento $(PYTHON_INTERPRETER) -m tc5044_mlops.reproducibilidad verificar
+
+## Levantar la API en local con recarga (http://127.0.0.1:8000/docs)
+.PHONY: api
+api:
+	uvicorn tc5044_mlops.api.main:app --reload --host 127.0.0.1 --port 8000
+
+## Regenerar docs/openapi.json
+.PHONY: openapi
+openapi:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.api.openapi
+
+## Construir la imagen del servicio (requiere make exportar)
+.PHONY: imagen
+imagen:
+	$(MOTOR) build $(FORMATO) -t $(IMAGEN_LOCAL) \
+		--build-arg VERSION=$(VERSION) --build-arg GIT_COMMIT=$$(git rev-parse --short HEAD) .
+
+## Correr el contenedor en segundo plano en el puerto 8000
+.PHONY: contenedor
+contenedor:
+	$(MOTOR) run -d --rm --name mibici-api -p 8000:8000 $(IMAGEN_LOCAL)
+
+## Detener el contenedor
+.PHONY: contenedor-detener
+contenedor-detener:
+	$(MOTOR) stop mibici-api
+
+## Verificar portabilidad: golden set por HTTP, dentro de la imagen y re-entrenamiento
+.PHONY: verificar-contenedor
+verificar-contenedor:
+	mkdir -p reports/reproducibilidad
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.verificar_servicio --url http://127.0.0.1:8000
+	$(MOTOR) run --rm $(IMAGEN_LOCAL) python -m tc5044_mlops.reproducibilidad verificar \
+		--salida - > reports/reproducibilidad/verificacion_modelo_contenedor.json
+	$(MOTOR) run --rm -v ./data/processed:/app/data/processed:ro,Z $(IMAGEN_LOCAL) \
+		python -m tc5044_mlops.reproducibilidad reentrenar \
+		--salida - > reports/reproducibilidad/reentrenamiento_contenedor.json
+
+## Etiquetar y publicar la imagen en DockerHub (requiere $(MOTOR) login docker.io)
+.PHONY: publicar
+publicar:
+	$(MOTOR) tag $(IMAGEN_LOCAL) $(IMAGEN):$(VERSION)-mv$(MODELO_V)
+	$(MOTOR) tag $(IMAGEN_LOCAL) $(IMAGEN):$(VERSION)
+	$(MOTOR) tag $(IMAGEN_LOCAL) $(IMAGEN):latest
+	$(MOTOR) push $(IMAGEN):$(VERSION)-mv$(MODELO_V)
+	$(MOTOR) push $(IMAGEN):$(VERSION)
+	$(MOTOR) push $(IMAGEN):latest
+
+## Simular data drift, evaluar el desempeño y emitir alertas
+.PHONY: drift
+drift:
+	$(PYTHON_INTERPRETER) -m tc5044_mlops.monitoring.drift
 
 
 #################################################################################
