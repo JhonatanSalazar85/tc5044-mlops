@@ -1,12 +1,57 @@
 name: CI
-on: [push, pull_request]
+on:
+  push:
+    branches: [main]
+  pull_request:
+
 jobs:
+  # El id "test" es el check obligatorio de la protección de la rama main: no renombrar.
   test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
       - run: uv venv --python 3.11
       - run: uv pip install -r requirements.txt -c constraints.txt
       - run: uv pip install -e .
-      - run: uv run pytest -q
+      - name: Pruebas unitarias y de integración
+        run: uv run pytest -q
+
+  # Prueba de humo del contenedor: construye la imagen con un modelo sintético
+  # (los datos reales no están en el repositorio), la levanta y verifica /health y
+  # el golden set por HTTP.
+  contenedor:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+      - run: uv venv --python 3.11
+      - run: uv pip install -r requirements.txt -c constraints.txt
+      - run: uv pip install -e .
+      - name: Modelo sintético con el formato de models/champion
+        run: uv run python -m tc5044_mlops.modeling.exportar --sintetico
+      - name: Construir la imagen
+        run: docker build -t ml-service:ci --build-arg GIT_COMMIT=${GITHUB_SHA::7} .
+      - name: Levantar el servicio y esperar a /health
+        run: |
+          docker run -d --name svc -p 8000:8000 ml-service:ci
+          for i in $(seq 1 30); do
+            curl -fs http://127.0.0.1:8000/health && exit 0
+            sleep 2
+          done
+          docker logs svc; exit 1
+      - name: Verificar el golden set por HTTP
+        run: uv run python -m tc5044_mlops.verificar_servicio --url http://127.0.0.1:8000 --nombre ci
+      - name: Registros del contenedor
+        if: always()
+        run: docker logs svc || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: verificacion-contenedor-ci
+          path: reports/reproducibilidad/

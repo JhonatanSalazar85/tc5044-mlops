@@ -39,3 +39,20 @@ extend-select = ["I"]  # Add import sorting
 known-first-party = ["tc5044_mlops"]
 force-sort-within-sections = true
 
+
+[tool.pytest.ini_options]
+# Un solo comando ejecuta todas las pruebas: `pytest -q` (o `make test`).
+testpaths = ["tests"]
+addopts = "-ra"
+markers = [
+    "integracion: pruebas de extremo a extremo (CSV crudos -> métricas, API, contenedor)",
+]
+filterwarnings = [
+    # Avisos de librerías de terceros que no indican errores del proyecto
+    "ignore::DeprecationWarning",
+    "ignore::FutureWarning:mlflow.*",
+    "ignore:.*Inferred schema contains integer column.*:UserWarning",
+    "ignore:.*Using `httpx` with `starlette.testclient`.*",
+    "ignore:.*select_dtypes.*:UserWarning",
+    "ignore:.*dataset source can be interpreted in multiple ways.*:UserWarning",
+]
