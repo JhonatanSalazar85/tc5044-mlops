@@ -1,0 +1,1 @@
+localhost/ml-service:latest 800 MB

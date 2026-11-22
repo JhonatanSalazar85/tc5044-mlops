@@ -1,0 +1,8 @@
+columna,psi,ks,ks_pvalor,nulos_ref,nulos_actual,delta_nulos,media_ref,media_actual,estado
+demanda_lag_1h,,,,0.0,1.0,1.0,3.004317045211792,,alerta
+demanda_lag_2h,,,,0.0,1.0,1.0,3.003237724304199,,alerta
+demanda_lag_24h,0.0,0.0,1.0,0.0,0.0,0.0,3.009999990463257,3.009999990463257,ok
+demanda_lag_168h,0.0,0.0,1.0,0.0,0.0,0.0,3.0354509353637695,3.0354509353637695,ok
+demanda_media_3h,,,,0.0,1.0,1.0,3.0040619373321533,,alerta
+demanda_media_24h,0.0,0.0,1.0,0.0,0.0,0.0,3.0079782009124756,3.0079782009124756,ok
+demanda_media_168h,0.0,0.0,1.0,0.0,0.0,0.0,3.034214735031128,3.034214735031128,ok

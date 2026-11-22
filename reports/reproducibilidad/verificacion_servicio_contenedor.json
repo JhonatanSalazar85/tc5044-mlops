@@ -1,0 +1,57 @@
+{
+  "verificacion": "servicio_http_vs_golden_set",
+  "fecha_utc": "2026-11-20T20:44:42+00:00",
+  "url": "http://127.0.0.1:8000",
+  "mismo_artefacto": {
+    "model_uri_local": "models:/mibici-demanda-estacion-hora/1",
+    "model_uri_servicio": "models:/mibici-demanda-estacion-hora/1",
+    "sha256_local": "8a3e5b4b764596860a0ee5425ac9aa058a6868132cddcfd392b4d49c93f1330f",
+    "sha256_servicio": "8a3e5b4b764596860a0ee5425ac9aa058a6868132cddcfd392b4d49c93f1330f",
+    "coincide": true
+  },
+  "comparacion": {
+    "filas": 2000,
+    "max_abs_diff": 0.0,
+    "media_abs_diff": 0.0,
+    "filas_fuera_tolerancia": 0,
+    "identicas_bit_a_bit": true,
+    "tolerancia": 1e-09,
+    "dentro_tolerancia": true
+  },
+  "metricas_esperadas": {
+    "mae": 1.3628439939089045,
+    "rmse": 2.278618822611153,
+    "wape": 0.445665138622925,
+    "devianza_poisson": 1.1277874713688416,
+    "r2": 0.6780616986421422
+  },
+  "metricas_servicio": {
+    "mae": 1.3628439939089045,
+    "rmse": 2.278618822611153,
+    "wape": 0.445665138622925,
+    "devianza_poisson": 1.1277874713688416,
+    "r2": 0.6780616986421422
+  },
+  "latencia_lote": {
+    "n": 4,
+    "p50_ms": 48.749492499950975,
+    "p95_ms": 49.98009140014119,
+    "max_ms": 50.169593000191526,
+    "registros_por_lote": 500
+  },
+  "latencia_un_registro": {
+    "n": 30,
+    "p50_ms": 25.743842499878156,
+    "p95_ms": 48.06650035008033,
+    "max_ms": 49.425444999997126
+  },
+  "salud": {
+    "estado": "ok",
+    "modelo_cargado": true,
+    "version_api": "1.0.0",
+    "modelo": "mibici-demanda-estacion-hora",
+    "version_modelo": "1",
+    "detalle": null
+  },
+  "entorno_verificado": "contenedor"
+}

@@ -67,3 +67,38 @@ stages:
     metrics:
       - reports/metricas_fase2.json:
           cache: false
+
+  # ---------------------------------------------------------------------------
+  # Fase 3
+  # ---------------------------------------------------------------------------
+  exportar:
+    # Copia models:/<modelo_registrado>@<alias> del Model Registry a una carpeta
+    # autocontenida (modelo + model_info.json + golden set). La versión exportada
+    # queda fijada por el hash de models/champion en dvc.lock.
+    cmd: python -m tc5044_mlops.modeling.exportar
+    deps:
+      - tc5044_mlops/modeling/exportar.py
+      - data/processed/mibici_demanda_horaria.parquet
+      - reports/metricas_fase2.json      # liga la etapa a `train`: si se reentrena, se reexporta
+    params:
+      - exportar
+      - mlflow.modelo_registrado
+    outs:
+      - models/champion
+
+  drift:
+    cmd: python -m tc5044_mlops.monitoring.drift
+    deps:
+      - tc5044_mlops/monitoring
+      - models/champion
+      - data/processed/mibici_demanda_horaria.parquet
+    params:
+      - drift
+    metrics:
+      - reports/drift/metricas_drift.json:
+          cache: false
+    plots:
+      - reports/drift/severidad.csv:
+          cache: false
+          x: factor
+          y: cambio_mae

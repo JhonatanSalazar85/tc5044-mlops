@@ -1,0 +1,310 @@
+schema: '2.0'
+stages:
+  descargar:
+    cmd: python -m tc5044_mlops.dataset descargar --out data/raw/mibici
+    deps:
+    - path: tc5044_mlops/dataset.py
+      hash: md5
+      md5: cc17df042cff24e7f517029a58665275
+      size: 11452
+    params:
+      params.yaml:
+        descargar.desde: 2025-01
+        descargar.hasta: 2026-08
+    outs:
+    - path: data/raw/mibici
+      hash: md5
+      md5: fe06922e795d6d9dba9f8e6769609dc5.dir
+      size: 642321086
+      nfiles: 22
+  consolidar:
+    cmd: python -m tc5044_mlops.dataset consolidar --in data/raw/mibici --out 
+      data/interim/mibici_viajes.parquet
+    deps:
+    - path: data/raw/mibici
+      hash: md5
+      md5: fe06922e795d6d9dba9f8e6769609dc5.dir
+      size: 642321086
+      nfiles: 22
+    - path: tc5044_mlops/dataset.py
+      hash: md5
+      md5: cc17df042cff24e7f517029a58665275
+      size: 11452
+    outs:
+    - path: data/interim/mibici_viajes.parquet
+      hash: md5
+      md5: 31a4c925b1141600c57344e534fa257f
+      size: 123087279
+  limpiar:
+    cmd: python -m tc5044_mlops.limpieza
+    deps:
+    - path: data/interim/mibici_viajes.parquet
+      hash: md5
+      md5: 31a4c925b1141600c57344e534fa257f
+      size: 123087279
+    - path: data/raw/mibici/nomenclatura
+      hash: md5
+      md5: 84d5a93251047936abbb7e187450ccd7.dir
+      size: 40841
+      nfiles: 1
+    - path: tc5044_mlops/limpieza.py
+      hash: md5
+      md5: dde499c39dcd9d693b701fec355f298c
+      size: 7958
+    params:
+      params.yaml:
+        limpiar:
+          duracion_min_valida: 1.0
+          duracion_max_valida: 1440.0
+          edad_min_valida: 12
+          edad_max_valida: 90
+    outs:
+    - path: data/processed/mibici_viajes.parquet
+      hash: md5
+      md5: 9a925e3d894b0d39fec24f614f750918
+      size: 180764026
+    - path: reports/limpieza.json
+      hash: md5
+      md5: 171d9f1311c9b86654e9efd47a7067f0
+      size: 607
+  features:
+    cmd: python -m tc5044_mlops.features
+    deps:
+    - path: data/processed/mibici_viajes.parquet
+      hash: md5
+      md5: 9a925e3d894b0d39fec24f614f750918
+      size: 180764026
+    - path: tc5044_mlops/features.py
+      hash: md5
+      md5: c77de9b9cdee84a8be1fa16fd12f83e4
+      size: 7916
+    params:
+      params.yaml:
+        features:
+          entrada: data/processed/mibici_viajes.parquet
+          salida: data/processed/mibici_demanda_horaria.parquet
+          top_estaciones: 50
+          lags_horas:
+          - 1
+          - 2
+          - 24
+          - 168
+          ventanas_moviles:
+          - 3
+          - 24
+          - 168
+    outs:
+    - path: data/processed/mibici_demanda_horaria.parquet
+      hash: md5
+      md5: 8d965111f00f99fec76bb1da4020586f
+      size: 5027846
+  train:
+    cmd: python -m tc5044_mlops.modeling.train
+    deps:
+    - path: data/processed/mibici_demanda_horaria.parquet
+      hash: md5
+      md5: 8d965111f00f99fec76bb1da4020586f
+      size: 5027846
+    - path: tc5044_mlops/modeling
+      hash: md5
+      md5: f1ee0ba19fd1a756b823ed899d4804c9.dir
+      size: 115598
+      nfiles: 14
+    - path: tc5044_mlops/pipeline.py
+      hash: md5
+      md5: 0943e36274f9d4cccf9504b9cbb67d4e
+      size: 8867
+    params:
+      params.yaml:
+        mlflow:
+          tracking_uri: sqlite:///mlflow.db
+          experimento: mibici-demanda-fase2
+          modelo_registrado: mibici-demanda-estacion-hora
+          metrica_seleccion: val_mae
+        modelos:
+          baseline:
+            columna: demanda_lag_168h
+            respaldo: demanda_media_24h
+          ridge:
+            alpha: 1.0
+          poisson:
+            alpha: 0.001
+            max_iter: 300
+          random_forest:
+            n_estimators: 60
+            max_depth: 12
+            min_samples_leaf: 20
+            max_samples: 0.3
+          hgb:
+            loss: poisson
+            learning_rate: 0.1
+            max_iter: 300
+            max_leaf_nodes: 31
+            min_samples_leaf: 40
+            l2_regularization: 0.0
+        optuna:
+          n_trials: 30
+          timeout_seg: 1800
+          fraccion_train: 1.0
+          espacio:
+            learning_rate:
+            - 0.02
+            - 0.3
+            max_iter:
+            - 100
+            - 600
+            max_leaf_nodes:
+            - 15
+            - 127
+            min_samples_leaf:
+            - 10
+            - 200
+            l2_regularization:
+            - 1e-06
+            - 10.0
+            max_features:
+            - 0.5
+            - 1.0
+        particion:
+          corte_val: '2026-05-01'
+          corte_test: '2026-07-01'
+        pipeline:
+          objetivo: demanda
+          col_estacion: origen_id
+          col_hora: hora
+          col_fin_semana: es_fin_semana
+          numericas:
+          - hora_sin
+          - hora_cos
+          - dia_sin
+          - dia_cos
+          - mes_sin
+          - mes_cos
+          - es_fin_semana
+          - demanda_lag_1h
+          - demanda_lag_2h
+          - demanda_lag_24h
+          - demanda_lag_168h
+          - demanda_media_3h
+          - demanda_media_24h
+          - demanda_media_168h
+          target_encoder_cv: 5
+          pca_componentes: 3
+          clusters_estaciones: 4
+        semilla: 42
+    outs:
+    - path: reports/metricas_fase2.json
+      hash: md5
+      md5: 9a31e2fe7e1aa0c56d8907b4aa4a2ca5
+      size: 3165
+  exportar:
+    cmd: python -m tc5044_mlops.modeling.exportar
+    deps:
+    - path: data/processed/mibici_demanda_horaria.parquet
+      hash: md5
+      md5: 8d965111f00f99fec76bb1da4020586f
+      size: 5027846
+    - path: reports/metricas_fase2.json
+      hash: md5
+      md5: 9a31e2fe7e1aa0c56d8907b4aa4a2ca5
+      size: 3165
+    - path: tc5044_mlops/modeling/exportar.py
+      hash: md5
+      md5: 23cd380c1ed4abeb2489594e59092cac
+      size: 14676
+    params:
+      params.yaml:
+        exportar:
+          alias: champion
+          destino: models/champion
+          muestra_referencia: 2000
+          tolerancia: 1e-09
+        mlflow.modelo_registrado: mibici-demanda-estacion-hora
+    outs:
+    - path: models/champion
+      hash: md5
+      md5: 0b8fd703a1256c4fb5dabedb2fba75bb.dir
+      size: 8470036
+      nfiles: 27
+  drift:
+    cmd: python -m tc5044_mlops.monitoring.drift
+    deps:
+    - path: data/processed/mibici_demanda_horaria.parquet
+      hash: md5
+      md5: 8d965111f00f99fec76bb1da4020586f
+      size: 5027846
+    - path: models/champion
+      hash: md5
+      md5: 0b8fd703a1256c4fb5dabedb2fba75bb.dir
+      size: 8470036
+      nfiles: 27
+    - path: tc5044_mlops/monitoring
+      hash: md5
+      md5: 46ede6621f5294d8bd5ae3799f32a975.dir
+      size: 94020
+      nfiles: 8
+    params:
+      params.yaml:
+        drift:
+          columnas:
+          - demanda_lag_1h
+          - demanda_lag_2h
+          - demanda_lag_24h
+          - demanda_lag_168h
+          - demanda_media_3h
+          - demanda_media_24h
+          - demanda_media_168h
+          bins_psi: 10
+          psi_aviso: 0.1
+          psi_alerta: 0.2
+          ks_alerta: 0.1
+          fraccion_columnas_alerta: 0.3
+          nulos_alerta: 0.05
+          inconsistencia_alerta: 0.05
+          mae_aviso: 0.05
+          mae_alerta: 0.15
+          muestra_evidently: 20000
+          salida: reports/drift
+          experimento: mibici-monitoreo-fase3
+          escenarios:
+            desplazamiento_medias:
+              columnas:
+              - demanda_lag_1h
+              - demanda_lag_2h
+              - demanda_lag_24h
+              - demanda_lag_168h
+              - demanda_media_3h
+              - demanda_media_24h
+              - demanda_media_168h
+              factor: 1.5
+            features_faltantes:
+              columnas:
+              - demanda_lag_1h
+              - demanda_lag_2h
+              - demanda_media_3h
+              fraccion: 1.0
+            cambio_estacional:
+              horas:
+              - 14
+              - 20
+              factor: 0.55
+            crecimiento_demanda:
+              factor: 1.4
+            severidad:
+              factores:
+              - 1.0
+              - 1.1
+              - 1.2
+              - 1.3
+              - 1.5
+              - 1.75
+              - 2.0
+    outs:
+    - path: reports/drift/metricas_drift.json
+      hash: md5
+      md5: 1bf200b8b7fabbe591d030386af3d6c5
+      size: 1429
+    - path: reports/drift/severidad.csv
+      hash: md5
+      md5: 108e96e3ccef3dc302c0b8a8a16f59bd
+      size: 1107
